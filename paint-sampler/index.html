@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display-P3 Canvas Interaction & Rendering</title>
+    <link rel="stylesheet" href="./canvas/style.css">
+</head>
+<body>
+    <!--
+    <h1>Display-P3 Canvas Interaction & Rendering</h1>
+    <p>All canvases require Display-P3 support. Rendering requires a modern browser with File System Access API support (secure context: HTTPS/localhost).</p>
+     -->
+
+    <div class="main-content-wrapper">
+    <!-- Paint Area -->
+    <div class="paint-area-wrapper">
+        <h2>Paint Area</h2> <!-- Hidden by default -->
+        <!-- Container for overlay -->
+        <div class="paint-canvas-stack-container">
+            <canvas id="paintBackgroundCanvas"></canvas> <!-- Background Layer -->
+            <canvas id="paintCanvas"></canvas> <!-- Paint Layer -->
+        </div>
+        <p id="paintStatus">Click to paint shapes using the latest render's distribution.</p>
+    </div>
+
+
+        <!-- Right Column: Controls -->
+        <div class="controls-area">
+
+        <!-- Left Column: Canvases -->
+        <div class="canvas-area">
+
+            <!-- Lower Interactive Canvases -->
+            <div class="canvas-container">
+                <!-- P3 / Overlay / Position Stack -->
+                <div class="canvas-wrapper">
+                    <h2>Display-P3 Source & Controls</h2> <!-- Combined Title (Hidden) -->
+                    <div class="p3-canvas-relative-container">
+                        <canvas id="p3Canvas" width="100" height="100"></canvas>
+                        <canvas id="positionCanvas" width="100" height="100"></canvas> <!-- Position Control Overlay -->
+                        <canvas id="overlayCanvas" width="100" height="100"></canvas> <!-- Shape Overlay -->
+                    </div>
+                    <p id="p3Status">P3 gradient status.</p>
+                    <p id="positionStatus">Interact to set position.</p>
+                    <p id="overlayStatus">Shape overlay status.</p>
+                </div>
+
+                <!-- Angle/Scale Control Canvas -->
+                <div class="canvas-wrapper" style="display:none">
+                    <h2>Angle & Scale Control</h2>
+                    <canvas id="angleScaleCanvas" width="100" height="100"></canvas>
+                    <p id="angleScaleStatus">Interact to set angle/scale.</p>
+                </div>
+
+            </div> <!-- End canvas-container -->
+
+            <!-- Monitor Area -->
+            <div class="monitor-area-wrapper">
+                <!-- Monitor Canvas 1 -->
+                <div class="monitor-wrapper">
+                    <h2>Monitor 1 (Result)</h2>
+                    <canvas id="monitorCanvas" width="100" height="100"></canvas>
+                    <p id="monitorStatus">Grant permission, then click "Render" or press Enter.</p>
+                </div>
+                <!-- Monitor Canvas 2 -->
+                <div class="monitor-wrapper monitor-wrapper-2">
+                     <h2>Monitor 2 (Comparison / Tiled)</h2>
+                    <canvas id="monitorCanvas2" width="100" height="100"></canvas>
+                    <p id="monitorStatus2">Result of secondary method.</p>
+                </div>
+            </div> <!-- End monitor-area-wrapper -->
+
+        </div> <!-- End canvas-area -->
+
+            <!-- Render Button Container -->
+            <div class="render-button-container">
+                <button id="renderButton" disabled>Render Color Selection</button>
+            </div>
+
+            <!-- Shape Form -->
+            <div class="form-container">
+                <h2>Shape Parameters</h2>
+                <form id="shapeForm">
+                    <fieldset>
+                        <legend>Shape Type:</legend>
+                        <label><input type="radio" name="shapeType" value="circle" checked> Circle</label>
+                        <label><input type="radio" name="shapeType" value="square"> Square</label>
+                        <label><input type="radio" name="shapeType" value="triangle"> Triangle</label>
+                        <label><input type="radio" name="shapeType" value="star"> 5tar</label>
+                    </fieldset>
+                    <div class="form-group">
+                        <label for="shapeSizeSlider">Base Size:</label>
+                        <input type="range" id="shapeSizeSlider" name="shapeSize" min="50" max="500" step="10" value="300">
+                        <span id="shapeSizeValue">100 units</span>
+                    </div>
+                    <p class="form-hint">Size unit: Circle (Circum.), Square (Diag.), Triangle (Long Side), Star (Outer Diam.). Max adjusted.</p>
+                </form>
+
+            <!-- Angle/Scale Form -->
+                <h2>Orientation & Scale</h2>
+                <form id="angleScaleForm">
+                    <div class="form-group">
+                        <label for="angleSlider">Angle</label>
+                        <input type="range" id="angleSlider" name="angle" min="0" max="1" step="0.005" value="0">
+                        <span id="angleValue">0.00 rad</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="distanceSlider">Scale</label>
+                        <input type="range" id="distanceSlider" name="distance" min="0" max="1" step="0.005" value="0.1">
+                        <span id="distanceValue">10%</span>
+                    </div>
+                </form>
+
+             <!-- Sampling Parameters Form -->
+                <h2>Sampling Parameters</h2>
+                <form id="samplingForm">
+                    <fieldset>
+                        <legend>Sampling Method:</legend>
+                        <label><input type="radio" name="samplingMethod" value="pixel" checked>Pixel</label>
+                        <label><input type="radio" name="samplingMethod" value="distribution">Distribution</label>
+                        <label><input type="radio" name="samplingMethod" value="raw">Raw Gradient</label>
+                    </fieldset>
+                    <div class="form-group" style="display:none">
+                        <label for="renderScaleSlider">Render Scale:</label>
+                        <input type="range" id="renderScaleSlider" name="renderScale" min="1" max="32" step="1" value="2">
+                        <span id="renderScaleValueSpan">2x</span>
+                    </div>
+                    <p class="form-hint">Render Scale multiplies base canvas size (100px) for hidden render buffer.</p>
+                </form>
+            </div>
+
+            <!-- Paint Controls Form -->
+            <div class="form-container paint-controls-container">
+                <h2>Paint Controls</h2> <!-- Hidden by default -->
+                <form id="paintControlsForm">
+                    <!-- Paint Method -->
+                    <fieldset>
+                        <legend>Paint Method:</legend>
+                        <label><input type="radio" name="paintMethod" value="stamp" checked> Stamp</label>
+                        <label><input type="radio" name="paintMethod" value="fill"> Fill Canvas</label>
+                    </fieldset>
+
+                    <!-- Master Scale -->
+                    <div class="form-group">
+                        <label for="paintMasterScaleSlider">Master Scale</label>
+                        <input type="range" id="paintMasterScaleSlider" name="paintMasterScale" min="0.1" max="10" step="0.05" value="0.5">
+                        <span id="paintMasterScaleValue">50%</span>
+                    </div>
+                    <p class="form-hint">Scales the base size for stamping/tiling.</p>
+
+                    <!-- Stamp Drag Scaling -->
+                    <fieldset>
+                        <legend>Stamp Drag Scaling:</legend>
+                        <div class="form-group">
+                            <label for="paintMinDragScaleSlider">Min Scale:</label>
+                            <input type="range" id="paintMinDragScaleSlider" name="paintMinDragScale" min="0.1" max="1" step="0.05" value="0.5">
+                            <span id="paintMinDragScaleValue">0.5x</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="paintMaxDragScaleSlider">Max Scale:</label>
+                            <input type="range" id="paintMaxDragScaleSlider" name="paintMaxDragScale" min="1" max="3" step="0.1" value="1.5">
+                            <span id="paintMaxDragScaleValue">1.5x</span>
+                        </div>
+                         <div class="form-group">
+                            <label for="paintMinDragDistSlider">Min Dist:</label>
+                            <input type="range" id="paintMinDragDistSlider" name="paintMinDragDist" min="1" max="20" step="1" value="1">
+                            <span id="paintMinDragDistValue">1px</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="paintMaxDragDistSlider">Max Dist:</label>
+                            <input type="range" id="paintMaxDragDistSlider" name="paintMaxDragDist" min="20" max="100" step="5" value="50">
+                            <span id="paintMaxDragDistValue">50px</span>
+                        </div>
+                    </fieldset>
+
+                    <!-- Alpha Modulation -->
+                    <fieldset>
+                        <legend>Alpha Sampling (All Methods):</legend>
+                         <div class="form-group">
+                            <label for="paintMinAlphaSlider">Alpha Mean:</label> <!-- Label updated -->
+                            <input type="range" id="paintMinAlphaSlider" name="paintAlphaMean" min="0" max="255" step="1" value="255">
+                            <span id="paintMinAlphaValue">255</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="paintMaxAlphaSlider">Alpha Std Dev:</label> <!-- Label updated -->
+                            <input type="range" id="paintMaxAlphaSlider" name="paintAlphaStdDev" min="0" max="128" step="1" value="0">
+                            <span id="paintMaxAlphaValue">0</span>
+                        </div>
+                         <!-- Alpha Override Checkbox -->
+                         <label class="checkbox-label">
+                             <input type="checkbox" id="alphaOverrideCheckbox" name="alphaOverride"> Force Alpha (Off=Sampled, On=Opaque)
+                         </label>
+                         <p class="form-hint">Applies sampled alpha variation. Override forces full opacity.</p>
+                    </fieldset>
+
+                     <!-- Raw Sampling Options -->
+                     <fieldset>
+                        <legend>Raw Sampling Options:</legend>
+                        <div class="form-group">
+                            <label for="paintMasterOpacitySlider">Master Opacity:</label>
+                            <input type="range" id="paintMasterOpacitySlider" name="paintMasterOpacity" min="0.05" max="1" step="0.05" value="1"> <!-- Max changed to 1 -->
+                            <span id="paintMasterOpacityValue">1.0</span>
+                        </div>
+                         <p class="form-hint">Applies overall opacity (0-1) to stamps/fills.</p>
+                        <div class="form-group">
+                            <label for="paintTileRotationSlider">Tile Rotation (Fill):</label>
+                            <input type="range" id="paintTileRotationSlider" name="paintTileRotation" min="0" max="1" step="0.01" value="0.05">
+                            <span id="paintTileRotationValue">0.05 (factor)</span>
+                        </div>
+                         <div class="form-group">
+                            <label for="paintXStrideFactorSlider">X Stride Factor (Fill):</label>
+                            <input type="range" id="paintXStrideFactorSlider" name="paintXStrideFactor" min="0.1" max="1" step="0.05" value="0.25">
+                            <span id="paintXStrideFactorValue">0.25</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="paintYStrideFactorSlider">Y Stride Factor (Fill):</label>
+                            <input type="range" id="paintYStrideFactorSlider" name="paintYStrideFactor" min="0.1" max="1" step="0.05" value="0.25">
+                            <span id="paintYStrideFactorValue">0.25</span>
+                        </div>
+                         <p class="form-hint">Stride factor multiplies tile size for Fill mode.</p>
+                         <label class="checkbox-label">
+                             <input type="checkbox" id="paintCompoundAngleCheckbox" name="paintCompoundAngle"> Compound Angle (Raw Fill)
+                         </label>
+                    </fieldset>
+                    <!-- Canvas Setup -->
+                    <fieldset>
+                        <legend>Canvas Setup:</legend>
+                        <div class="form-group">
+                            <label for="paintCanvasWidthInput">Width (px):</label>
+                            <input type="number" id="paintCanvasWidthInput" name="paintCanvasWidth" min="100" max="4000" step="10" value="700">
+                        </div>
+                        <div class="form-group">
+                            <label for="paintCanvasHeightInput">Height (px):</label>
+                            <input type="number" id="paintCanvasHeightInput" name="paintCanvasHeight" min="100" max="4000" step="10" value="700">
+                        </div>
+                        <fieldset class="inline-fieldset">
+                             <legend>Background:</legend>
+                             <label><input type="radio" name="paintBackgroundColor" value="#ffffff" checked> White</label>
+                             <label><input type="radio" name="paintBackgroundColor" value="#000000"> Black</label>
+                        </fieldset>
+                        <button type="button" id="createCanvasButton">Create / Reset Canvas</button>
+                    </fieldset>
+
+
+                    <!-- Export Options -->
+                    <fieldset>
+                         <legend>Export Paint Area:</legend>
+                         <fieldset class="inline-fieldset">
+                             <legend>Background:</legend>
+                             <label><input type="radio" name="exportBackground" value="transparent" checked> Transparent</label>
+                             <label><input type="radio" name="exportBackground" value="#ffffff"> White</label>
+                             <label><input type="radio" name="exportBackground" value="#000000"> Black</label>
+                         </fieldset>
+                         <fieldset class="inline-fieldset">
+                             <legend>Format:</legend>
+                             <label><input type="radio" name="exportFormat" value="png" checked> PNG</label>
+                             <label><input type="radio" name="exportFormat" value="jpeg"> JPG</label>
+                         </fieldset>
+                         <div class="form-group" id="jpgQualityGroup" style="display: none;"> <!-- Initially hidden -->
+                             <label for="jpgQualitySlider">JPG Quality:</label>
+                             <input type="range" id="jpgQualitySlider" name="jpgQuality" min="0.1" max="1" step="0.01" value="0.92">
+                             <span id="jpgQualityValue">0.92</span>
+                         </div>
+                         <div class="button-group">
+                             <button type="button" id="exportCanvasButton">Export File</button>
+                             <button type="button" id="copyCanvasButton">Copy to Clipboard</button>
+                         </div>
+                    </fieldset>
+                </form>
+            </div> <!-- End paint-controls-container -->
+
+
+            <!-- Permission Area -->
+            <div class="permission-area">
+                <h2>Storage Permission</h2>
+                <button id="permissionButton">Grant Directory Permission</button>
+                <p id="permissionStatus">Checking permission status...</p>
+                <p class="form-hint">Permission is needed to save render results to your chosen directory.</p>
+            </div>
+
+        </div> <!-- End controls-area -->
+
+    </div> <!-- End main-content-wrapper -->
+
+    <script src="./canvas/memoryBank.js"></script>
+    <script src="./canvas/script.js"></script>
+    <script src="./canvas/paintUI.js"></script>
+</body>
+</html>

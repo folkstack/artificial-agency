@@ -1,0 +1,406 @@
+/* Add this rule at the top if not already present */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    margin: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+/* Hide initial elements */
+body > h1, body > p:first-of-type {
+    display: none;
+}
+
+/* Hide all H2 */
+h2 {
+    display: none;
+}
+
+p { /* Default paragraph styles */
+    font-size: 0.9em;
+    color: #555;
+    min-height: 1.2em;
+    text-align: center;
+    margin-bottom: 10px; /* Consistent bottom margin */
+}
+
+/* --- Main Layout --- */
+.main-content-wrapper {
+    display: flex;
+    flex-wrap: wrap; /* Allow controls to wrap below canvas on very narrow screens */
+    gap: 30px; /* Space between canvas area and controls area */
+    margin-bottom: 30px; /* Add space below the main content */
+}
+
+/* --- Left Column: Canvas Area --- */
+.canvas-area {
+    flex: 2; /* Allow canvas area to take more space */
+    min-width: 300px; /* Minimum width for at least one canvas */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start; /* Align canvases to the start */
+    align-items: flex-start;
+    gap: 20px; /* Space between canvas wrappers */
+}
+
+/* --- Right Column: Controls Area --- */
+.controls-area {
+    flex: 1; /* Allow controls to take available space */
+    max-width: 400px; /* Minimum width for controls */
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Space between control blocks */
+}
+
+/* --- Canvas Wrappers (General) --- */
+.canvas-container {
+    /* These act as sub-groupings within canvas-area */
+    display: flex;
+    flex-direction:row;
+    gap: 20px;
+    justify-content: flex-start;
+}
+.monitor-area-wrapper{
+    /* These act as sub-groupings within canvas-area */
+    display: flex;
+    flex-direction:row;
+    gap: 20px;
+    justify-content: flex-start;
+}
+
+.monitor-wrapper, .canvas-wrapper {
+    /* Individual canvas block */
+    max-width: 100px; /* Prevent growing larger than canvas */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+/* Hide Canvas Status Paragraphs */
+#monitorStatus, #monitorStatus2,
+#p3Status, #overlayStatus, #angleScaleStatus, #positionStatus {
+    display: none;
+}
+
+/* --- Specific Canvas Styles --- */
+canvas { /* Default canvas border */
+    border: 1px solid #ccc;
+    display: block;
+    background-color: #fff; /* Default, overridden for paintCanvas */
+    max-width: 100%;
+    height: auto;
+}
+
+#monitorCanvas, #monitorCanvas2 {
+    border: 2px solid #333;
+    width: 100px;
+    height: 100px;
+    background-color: #eee;
+    margin: 0 auto; /* Center within wrapper */
+}
+
+/* P3 / Overlay / Position Stack Container */
+.p3-canvas-relative-container {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto; /* Center within wrapper */
+    flex-shrink: 0;
+    display:flex;
+    flex-wrap:wrap;
+    flex-direction:column;
+}
+
+#p3Canvas {
+    /* Base layer */
+    position: static; /* Part of normal flow within relative container */
+    width: 100px;
+    height: 100px;
+    border: 1px solid #ccc;
+    margin: 0;
+}
+
+#positionCanvas {
+    /* Interactive layer - OVER P3, UNDER Shape Overlay */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100px;
+    height: 100px;
+    cursor: crosshair;
+    background-color: transparent; /* See through to P3 */
+    border: none; /* No border */
+    z-index: 5; /* Above P3 */
+    pointer-events: auto; /* Allow interaction */
+    margin: 0;
+}
+
+#overlayCanvas {
+    /* Shape overlay layer - TOPMOST */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100px;
+    height: 100px;
+    border: none;
+    background-color: transparent;
+    pointer-events: none; /* No interaction */
+    z-index: 10; /* Above Position */
+    margin: 0;
+}
+
+#angleScaleCanvas {
+   /* Standalone interactive canvas */
+   cursor: crosshair;
+   background-color: #e9e9e9;
+   border: 1px dashed #999;
+   width: 100px;
+   height: 100px;
+   margin: 0 auto; /* Center within wrapper */
+}
+
+
+/* --- Controls Area Styling --- */
+.render-button-container {
+    text-align: center;
+    width: 100%; /* Take full width */
+    margin-bottom: 0px; /* Add some space below button */
+}
+
+#renderButton {
+    width:100%;
+    padding: 6px 12px;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #fff;
+    background-color: #28a745; /* Green */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+#renderButton:hover:not(:disabled) { background-color: #218838; }
+#renderButton:disabled { background-color: #ccc; cursor: not-allowed; }
+
+.form-container, .permission-area {
+    width: 100%; /* Make control blocks take full width of right column */
+    max-width: none; /* Override previous max-width */
+    background-color: transparent;
+}
+
+.paint-controls-container {
+    margin-top: 0px; /* Add some space above paint controls */
+}
+
+
+.form-container h2, .permission-area h2 { /* Still hidden by global h2 rule */
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+#shapeForm, #angleScaleForm, #positionForm, #samplingForm, #paintControlsForm {
+    display: flex;
+    flex-direction: column;
+}
+
+#shapeForm fieldset, #samplingForm fieldset, #paintControlsForm fieldset {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px 15px 15px 15px;
+    /* margin: 0 0 10px 0; */
+    border: none;
+    padding: 0;
+    text-align: center;
+}
+
+/* Style inline fieldsets for radio groups */
+.inline-fieldset {
+    border: none; /* Remove outer border */
+    padding: 5px 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px; /* Space between radio buttons */
+    align-items: center;
+}
+.inline-fieldset legend {
+    font-weight: bold;
+    padding: 0 5px 0 0; /* Adjust padding */
+    font-size: 0.9em;
+    margin-right: 10px; /* Space after legend */
+    flex-shrink: 0;
+}
+.inline-fieldset label {
+    margin-bottom: 0; /* Remove bottom margin */
+    display: inline-flex; /* Align items nicely */
+    align-items: center;
+}
+
+
+#shapeForm legend, #samplingForm legend, #paintControlsForm fieldset > legend { /* Target direct fieldset legends */
+    font-weight: bold;
+    padding: 0 5px;
+    font-size: 0.95em;
+}
+
+#shapeForm label, #samplingForm label, #paintControlsForm label {
+    margin-bottom: 5px;
+    cursor: pointer;
+    font-size: 0.95em;
+}
+#shapeForm input[type="radio"], #samplingForm input[type="radio"], #paintControlsForm input[type="radio"] {
+    margin-right: 6px;
+    vertical-align: middle;
+}
+#paintControlsForm input[type="number"] {
+    width: 70px; /* Adjust width for number inputs */
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+#paintControlsForm button[type="button"] {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+    margin-top: 5px;
+}
+.checkbox-label { /* Style checkbox label */
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+}
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+
+.form-group {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-group label {
+    flex-basis: 100px; /* Slightly less basis for label */
+    text-align: right;
+    font-weight: bold;
+    font-size: 0.9em;
+    flex-shrink: 0;
+}
+
+.form-group input[type="range"] {
+    flex-grow: 1;
+    min-width: 80px;
+    cursor: pointer;
+}
+
+.form-group span {
+display:none;
+    flex-basis: 70px; /* Slightly less basis for span */
+    text-align: right;
+    font-family: monospace;
+    background-color: #eee;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    flex-shrink: 0;
+}
+
+.form-hint {
+    display:none;
+    font-size: 0.8em;
+    color: #666;
+    text-align: center;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+/* Permission Area Specific */
+.permission-area {
+    text-align: center;
+}
+#permissionButton {
+    padding: 8px 15px;
+    font-size: 0.95em;
+    color: #fff;
+    background-color: #007bff; /* Blue */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-bottom: 10px; /* Space below button */
+}
+#permissionButton:hover:not(:disabled) { background-color: #0056b3; }
+#permissionButton:disabled { background-color: #ccc; cursor: not-allowed; }
+
+#permissionStatus {
+    display: block; /* Make status take its own line */
+    font-style: italic;
+    font-weight: bold;
+    min-height: 0;
+    margin-bottom: 5px;
+}
+
+/* --- Paint Area Styles --- */
+.paint-area-wrapper {
+    width: 50%;
+    margin-top: 30px; /* Space above the paint area */
+    padding: 15px;
+    background-color: #e0e0e0; /* Light gray background for the wrapper */
+    border: 1px solid #bbb;
+    border-radius: 8px;
+}
+
+.paint-canvas-stack-container {
+    position: relative;
+    width: 100%; /* Take full width of wrapper */
+    /* Height will be determined by the canvases inside */
+    margin: 0 auto;
+    border: 1px solid #999; /* Border around the stack */
+    overflow: hidden; /* Hide potential overflow if canvases mismatch slightly */
+}
+
+#paintBackgroundCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* Display size matches container */
+    height: 100%; /* Display size matches container */
+    z-index: 1; /* Behind paint canvas */
+    border: none; /* Remove default border */
+    background-color: transparent; /* Should be filled by JS */
+}
+
+#paintCanvas {
+    position: relative; /* Needed for z-index stacking */
+    z-index: 5; /* Above background */
+    width: 100%; /* Display size matches container */
+    height: auto; /* Maintain aspect ratio */
+    display: block;
+    border: none; /* Remove default border */
+    background-color: transparent; /* IMPORTANT: Make paint layer transparent */
+    cursor: crosshair;
+    touch-action: none;
+}
+
+
+#paintStatus {
+    display: block; /* Ensure it's visible */
+    text-align: center;
+    margin-top: 10px; /* Space above the status */
+    font-style: italic;
+    color: #444;
+}
