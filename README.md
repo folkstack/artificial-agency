@@ -10,7 +10,7 @@ I wanted to analyze the bare self attention algorithm, meaning that no weights a
 [Interactive Demo](https://folkstack.github.io/artificial-agency/bezier-attention/bezierAttention.html)
 ## Pixel Sampling Painting App
 A canvas painting app specifically designed to pick colors/textures by extracting the pixel distributions of color pallete shapes.  
-Perhaps not the most user friendly app, made in less than a day, but I wanted to push the limits, and use cutting edge browser specs like the file system API to store large sample distribution data.
+Perhaps not the most user friendly app, and certainly not complete, but I wanted to test the limits, and use cutting edge browser specs like the file system API to store large sample distribution data.
 To use it you must activate the FS API by scrolling to the bottom of the page.  Then back at the top you first choose the shape of colors.
 [Try the app](https://folkstack.github.io/artificial-agency/paint-sampler/)
 ## Coming Soon
