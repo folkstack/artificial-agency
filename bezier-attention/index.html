@@ -1,0 +1,321 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bézier Curve Attention Visualizer (Dual Resampling)</title>
+    <!-- TensorFlow.js FIRST -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <!-- Chart.js SECOND -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <!-- Your API SCRIPT (NO type="module") -->
+    <script src="bezierAttention.js"></script> <!-- Loads the file above -->
+
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            display: flex; /* Use Flexbox for layout */
+            flex-wrap: wrap; /* Allow items to wrap */
+            gap: 20px; /* Add space between flex items */
+        }
+
+        /* --- Header & Description Styling --- */
+        h1 {
+            width: 100%;
+            flex-basis: 100%;
+            font-size: 1.6em;
+            margin-bottom: 5px; /* Reduced bottom margin */
+            margin-top: 0; /* Remove top margin */
+        }
+
+        /* Wrapper for the description columns */
+        .description-columns {
+            width: 100%;
+            flex-basis: 100%; /* Takes full width row */
+            margin-bottom: 20px; /* Space below description block */
+            margin-top: 0;
+            font-size: 0.95em;
+            line-height: 1.4;
+            /* Default to 1 column (mobile) */
+            column-count: 1;
+            column-gap: 25px; /* Gap for multi-column */
+        }
+
+        /* Apply 4 columns on wider screens */
+        @media (min-width: 1200px) { /* Increased breakpoint for 4 columns */
+            .description-columns {
+                column-count: 4;
+            }
+        }
+        /* Apply 2 columns on medium screens */
+         @media (min-width: 600px) and (max-width: 1199px) {
+            .description-columns {
+                column-count: 2;
+            }
+        }
+
+        /* Style paragraphs within the columns */
+        .description-columns p {
+            margin-top: 0;
+            margin-bottom: 0.75em;
+            text-indent: 1.5em;
+            text-align: justify; /* Justify text */
+            /* Prevent columns breaking inside a paragraph */
+            break-inside: avoid-column;
+            page-break-inside: avoid; /* Older browser support */
+        }
+        /* Style for the parameter list header */
+         .description-columns h4 {
+             margin-top: 0.5em;
+             margin-bottom: 0.2em;
+             font-size: 1em;
+             font-weight: bold;
+             text-indent: 1.5em; /* Indent like paragraphs */
+             break-inside: avoid-column;
+             page-break-inside: avoid;
+         }
+
+        /* Style for the parameter list */
+        .description-columns ul {
+            margin-top: 0;
+            margin-bottom: 0.75em;
+            padding-left: 1.5em; /* Indent list like paragraphs */
+             list-style-position: outside; /* Bullets outside text block */
+             break-inside: avoid-column;
+             page-break-inside: avoid;
+        }
+         .description-columns li {
+             margin-bottom: 0.3em; /* Space between list items */
+             text-align: justify; /* Justify list items */
+         }
+
+         /* --- End Header & Description Styling --- */
+
+
+        .controls {
+            /* Assign a fixed width, prevent growing/shrinking */
+            flex: 0 0 300px;
+            margin-bottom: 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            align-self: flex-start;
+            box-sizing: border-box;
+        }
+
+        .controls label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .controls input, .controls select { display: block; width: calc(100% - 12px); padding: 5px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 3px; box-sizing: border-box; }
+        .controls button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; width: 100%; box-sizing: border-box; }
+        .controls button:hover { background-color: #0056b3; }
+
+       .charts {
+            flex: 1;
+            min-width: 400px;
+            margin-top: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-content: flex-start;
+        }
+
+       .chart-row { display: flex; flex-wrap: wrap; gap: 20px; width: 100%; flex-basis: 100%; }
+       .chart-container { flex: 1 1 300px; min-width: 280px; border: 1px solid #eee; padding: 10px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); box-sizing: border-box; }
+       .chart-container canvas { max-width: 100%; height: auto; }
+       #statusMessage { margin-top: 15px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+
+    <!-- ** Title ** -->
+    <h1>Comparing non-uniform resampling driven by sharpness vs. self-attention. <a href="https://github.com/folkstack/art-of-inference/blob/master/README.md">README</a></h1>
+
+    <!-- ** Description columns ** -->
+    <div class="description-columns">
+        <p>
+            <!-- ** EDITED: Combined First 3 Paragraphs & Removed "-based" ** -->
+            This visualizer explores non-uniform resampling of Bézier curves, driven by two distinct importance metrics. The <strong>Sharpness resampling</strong> prioritizes points in regions of high curvature, approximated by the second derivative, which focuses samples on visually complex sections. In contrast, the <strong>Attention resampling</strong> uses the total attention weight <em>received</em> by each point within a self-attention mechanism as its importance score, concentrating samples on points identified as contextually significant based on their relationship with all other points.
+        </p>
+        <p>
+            <!-- ** EDITED: Integrated Parentheticals ** -->
+            To calculate the non-uniform sample points, which are `t` values from 0 to 1, the chosen importance scores, either sharpness or attention scores, are treated like a discrete Probability Density Function (PDF). Areas with high scores have higher density. We then compute the Cumulative Distribution Function (CDF) by taking the normalized cumulative sum of these scores. This CDF maps the original uniform parameter `t` to the accumulated importance. To get the new `t` values, we invert this process: we sample uniformly along the CDF's output range from 0 to 1 and find the corresponding input `t` values by looking up or interpolating on the empirical CDF. This effectively clusters the new `t` values in regions where the original importance scores were high.
+        </p>
+        <p>
+            <!-- ** EDITED: Combined 5th & 6th Paragraphs, Removed "itself", Removed activation examples ** -->
+            The self-attention process calculates how strongly each point influences others. Here, we've modified the standard calculation: a bias based on calculated sharpness, scaled by the 'Sharpness Emphasis Factor', is added to raw attention scores <em>before</em> the final activation function is applied. This injection of local geometric properties into the attention computation guides the mechanism to assign higher importance to points in sharp turns.
+        </p>
+        <p>
+            <!-- ** EDITED: Added LLM disclaimer ** -->
+            <strong>Note:</strong> This demonstration illustrates the mechanics of self-attention and resampling. It does not involve training a neural network or using gradient descent to optimize weights. The entire app contents and code were generated by a large language model using the authors agent. <a href="https://github.com/folkstack/art-of-inference/blob/master/README.md">README</a> for more, or contact the author: folkstack@gmail.com.
+        </p>
+        <!-- ** ADDED Parameter Key Header ** -->
+        <h4>Parameter Key:</h4>
+        <!-- ** Parameter Key List ** -->
+        <ul>
+            <li><strong>Control Points:</strong> Define the shape of the 1D Bézier curve.</li>
+            <li><strong>Number of Sample Points:</strong> Sets the resolution for uniform sampling and the target number for non-uniform resampling.</li>
+            <li><strong>Sharpness Emphasis Factor:</strong> Scales the sharpness bias added during attention calculation.</li>
+            <li><strong>Attention Activation:</strong> Selects the function applied to the attention scores after the sharpness bias is added.</li>
+        </ul>
+    </div>
+    <!-- ** End description columns ** -->
+
+
+    <!-- ** CHARTS DIV (ON LEFT) ** -->
+    <div class="charts" id=charts>
+        <div class="chart-row chart-row-top">
+            <div class="chart-container">
+                <h2>Original Uniform Curve</h2>
+                <canvas id="originalCurveChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>Resampled Curve (Sharpness)</h2>
+                <canvas id="resampledCurveSharpnessChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h2>Resampled Curve (Attention)</h2>
+                <canvas id="resampledCurveAttentionChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h2>Attention Weights (Middle Pt)</h2>
+            <canvas id="attentionWeightsChart"></canvas>
+        </div>
+         <div class="chart-container">
+            <h2>Sharpness Scores</h2>
+            <canvas id="sharpnessChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h2>Attended Output</h2>
+            <canvas id="attendedCurveChart"></canvas>
+        </div>
+    </div>
+    <!-- ** END CHARTS DIV ** -->
+
+
+    <!-- ** CONTROLS DIV (ON RIGHT) ** -->
+    <div class="controls">
+        <label for="controlPointsInput">Control Points (e.g., 0, 5, -2, 8):</label>
+        <!-- ** EDITED: Changed default control points ** -->
+        <input type="text" id="controlPointsInput" value="0,6,0,-6,0">
+        <label for="numPointsInput">Number of Sample Points:</label>
+        <input type="number" id="numPointsInput" value="100" min="10" max="1000" step="1">
+        <label for="sharpnessFactorInput">Sharpness Emphasis Factor:</label>
+        <input type="number" id="sharpnessFactorInput" value="5.0" min="0" max="100" step="0.1">
+        <label for="activationFunctionSelect">Attention Activation:</label>
+        <select id="activationFunctionSelect">
+            <!-- ** EDITED: Removed "(Original)" from Softmax option text ** -->
+            <option value="softmax" selected>Softmax</option>
+            <option value="relu">ReLU + Norm</option>
+            <option value="sigmoid">Sigmoid</option>
+            <option value="square">Square + Norm</option>
+        </select>
+        <button id="runButton">Generate and Visualize</button>
+        <div id="statusMessage"></div>
+    </div>
+
+    <!-- UI LOGIC SCRIPT (Chart logic unchanged) -->
+    <script>
+        // --- Chart Instances ---
+        let originalCurveChartInstance = null;
+        let attentionWeightsChartInstance = null;
+        let attendedCurveChartInstance = null;
+        let sharpnessChartInstance = null;
+        let resampledCurveSharpnessChartInstance = null; // Renamed
+        let resampledCurveAttentionChartInstance = null; // Added
+
+        // --- Plotting Functions ---
+        function plotLineChart(canvasId, label, data, xLabels) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const chartId = canvasId + 'Instance';
+            if (window[chartId]) { window[chartId].destroy(); }
+            window[chartId] = new Chart(ctx, getLineChartConfig(label, data, xLabels));
+        }
+
+        function plotBarChart(canvasId, label, data, xLabels) {
+             const ctx = document.getElementById(canvasId).getContext('2d');
+             const chartId = canvasId + 'Instance';
+             if (window[chartId]) { window[chartId].destroy(); }
+             window[chartId] = new Chart(ctx, getBarChartConfig(label, data, xLabels));
+        }
+
+         // --- Chart Configs ---
+         function getLineChartConfig(label, data, xLabels) {
+             return {
+                 type: 'line', data: { labels: xLabels, datasets: [{ label: label, data: data, borderColor: 'rgb(75, 192, 192)', tension: 0.1, pointRadius: 1, borderWidth: 1.5 }] },
+                 options: { scales: { y: { beginAtZero: false } }, animation: { duration: 0 } }
+             };
+         }
+         function getBarChartConfig(label, data, xLabels) {
+              return {
+                  type: 'bar', data: { labels: xLabels, datasets: [{ label: label, data: data, backgroundColor: 'rgba(255, 99, 132, 0.5)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1 }] },
+                  options: { scales: { y: { beginAtZero: true } }, animation: { duration: 0 } }
+              };
+          }
+
+        // --- Main Execution (Chart Generation Logic) ---
+        const runButton = document.getElementById('runButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const api = window.bezierAttentionAPI; // Access global API
+
+        if (typeof bezierPoint === 'undefined') {
+            console.error("FATAL ERROR: 'bezierPoint' function not found.");
+            if(statusMessage) { statusMessage.textContent = 'Error: Core API function missing.'; statusMessage.style.color = 'red'; }
+            if(runButton) runButton.disabled = true;
+        }
+        else if (!api || typeof api.calculateNonUniformTValues !== 'function' || typeof api.attentionWithSharpness_ReLU !== 'function') {
+            console.error("FATAL ERROR: bezierAttentionAPI is incomplete or failed to load.");
+             if(statusMessage) { statusMessage.textContent = 'Error: Core API failed to load.'; statusMessage.style.color = 'red'; }
+            if(runButton) runButton.disabled = true;
+        } else {
+            console.log("API loaded successfully:", api);
+            runButton.addEventListener('click', async () => {
+                window.scrollTo(0, window.innerHeight)
+                console.log("Run button clicked. API:", api);
+                 if (!tf) {
+                     if(statusMessage) { statusMessage.textContent = 'Error: TensorFlow.js not loaded.'; statusMessage.style.color = 'red'; }
+                    return;
+                 }
+                 if(statusMessage) { statusMessage.textContent = 'Processing...'; statusMessage.style.color = '#555'; }
+                let bezierCurveTensor = null, attentionResult = null, sharpnessTensor = null, resampledCurveSharpnessTensor = null, resampledCurveAttentionTensor = null, receivedAttentionScoresTensor = null;
+                try {
+                    const cpElement = document.getElementById('controlPointsInput'); const npElement = document.getElementById('numPointsInput'); const sfElement = document.getElementById('sharpnessFactorInput'); const activationElement = document.getElementById('activationFunctionSelect');
+                    if (!cpElement || !npElement || !sfElement || !activationElement) throw new Error("Input element(s) not found");
+                    const cpInput = cpElement.value; const numPoints = parseInt(npElement.value, 10); const sharpnessFactor = parseFloat(sfElement.value); const activationChoice = activationElement.value;
+                    const controlPoints = cpInput.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                    if (controlPoints.length < 2) throw new Error("Need >= 2 control points."); if (isNaN(numPoints) || numPoints < 10) throw new Error("Invalid points (min 10)."); if (isNaN(sharpnessFactor) || sharpnessFactor < 0) throw new Error("Invalid sharpness factor.");
+                    console.log("Inputs:", { controlPoints, numPoints, sharpnessFactor, activationChoice });
+                    console.log("Calculating initial uniform curve..."); bezierCurveTensor = api.calculateBezierPoints(controlPoints, numPoints); if (!bezierCurveTensor) throw new Error("Initial calculateBezierPoints failed.");
+                    console.log("Calculating attention with", activationChoice, "activation...");
+                    switch (activationChoice) { case 'relu': attentionResult = api.attentionWithSharpness_ReLU(bezierCurveTensor, sharpnessFactor); break; case 'sigmoid': attentionResult = api.attentionWithSharpness_Sigmoid(bezierCurveTensor, sharpnessFactor); break; case 'square': attentionResult = api.attentionWithSharpness_Square(bezierCurveTensor, sharpnessFactor); break; default: attentionResult = api.attentionWithSharpness(bezierCurveTensor, sharpnessFactor); break; }
+                    if (!attentionResult || !attentionResult.attendedCurve || !attentionResult.attentionWeights) throw new Error(`Attention calc failed for ${activationChoice}.`);
+                    console.log("Calculating sharpness for plotting..."); sharpnessTensor = api.calculateSharpness(bezierCurveTensor); if (!sharpnessTensor) throw new Error("Sharpness calculation for plot failed.");
+                    console.log("Extracting sharpness data & resampling (sharpness)..."); const sharpnessData = await sharpnessTensor.array(); const sharpnessNewTValues = api.calculateNonUniformTValues(sharpnessData, numPoints);
+                    console.log("Calculating curve at sharpness-driven t values...");
+                    resampledCurveSharpnessTensor = tf.tidy(() => { const cpTensor = tf.tensor1d(controlPoints); const pts = sharpnessNewTValues.map(t => bezierPoint(cpTensor, t)); pts.forEach((p, i) => { if (!p || !(p instanceof tf.Tensor)) throw new Error(`Sharpness Resample: Failed point calc at t=${sharpnessNewTValues[i]}`); }); cpTensor.dispose(); return tf.stack(pts); });
+                    if (!resampledCurveSharpnessTensor) throw new Error("Failed sharpness resampling calc."); const resampledCurveSharpnessData = await resampledCurveSharpnessTensor.array();
+                    console.log("Calculating attention column sums & resampling (attention)..."); receivedAttentionScoresTensor = tf.tidy(() => tf.sum(attentionResult.attentionWeights, 0)); const receivedAttentionScores = await receivedAttentionScoresTensor.array(); receivedAttentionScoresTensor.dispose(); receivedAttentionScoresTensor = null; const attentionNewTValues = api.calculateNonUniformTValues(receivedAttentionScores, numPoints);
+                    console.log("Calculating curve at attention-driven t values...");
+                     resampledCurveAttentionTensor = tf.tidy(() => { const cpTensor = tf.tensor1d(controlPoints); const pts = attentionNewTValues.map(t => bezierPoint(cpTensor, t)); pts.forEach((p, i) => { if (!p || !(p instanceof tf.Tensor)) throw new Error(`Attention Resample: Failed point calc at t=${attentionNewTValues[i]}`); }); cpTensor.dispose(); return tf.stack(pts); });
+                    if (!resampledCurveAttentionTensor) throw new Error("Failed attention resampling calc."); const resampledCurveAttentionData = await resampledCurveAttentionTensor.array();
+                    console.log("Extracting remaining plot data..."); const [originalCurveData, attendedCurveData, attentionWeightsData] = await Promise.all([ bezierCurveTensor.array(), attentionResult.attendedCurve.array(), attentionResult.attentionWeights.array() ]); const middleIndex = Math.floor(numPoints / 2); const middlePointWeights = attentionWeightsData[middleIndex];
+                    console.log("Plotting results..."); const xLabels = Array.from({ length: numPoints }, (_, i) => i.toString());
+                    plotLineChart('originalCurveChart', 'Original Uniform Curve', originalCurveData, xLabels); plotBarChart('attentionWeightsChart', `Weights (${activationChoice}) from Pt ${middleIndex}`, middlePointWeights, xLabels); plotBarChart('sharpnessChart', 'Sharpness Scores (Importance)', sharpnessData, xLabels); plotLineChart('attendedCurveChart', `Attended Output (${activationChoice})`, attendedCurveData, xLabels); plotLineChart('resampledCurveSharpnessChart', 'Resampled Curve (Sharpness)', resampledCurveSharpnessData, xLabels); plotLineChart('resampledCurveAttentionChart', 'Resampled Curve (Attention)', resampledCurveAttentionData, xLabels);
+                    if(statusMessage) { statusMessage.textContent = 'Done.'; statusMessage.style.color = 'green'; }
+                } catch (error) { console.error("Calculation or Plotting Error:", error); if(statusMessage) { statusMessage.textContent = `Error: ${error.message}`; statusMessage.style.color = 'red'; }
+                } finally {
+                    console.log("Disposing tensors (if they exist)...");
+                    if (bezierCurveTensor && !bezierCurveTensor.isDisposed) { bezierCurveTensor.dispose(); console.log("Disposed bezierCurveTensor"); } if (sharpnessTensor && !sharpnessTensor.isDisposed) { sharpnessTensor.dispose(); console.log("Disposed sharpnessTensor (plot copy)"); }
+                    if (attentionResult) { if (attentionResult.attendedCurve && !attentionResult.attendedCurve.isDisposed) { attentionResult.attendedCurve.dispose(); console.log("Disposed attendedCurve"); } if (attentionResult.attentionWeights && !attentionResult.attentionWeights.isDisposed) { attentionResult.attentionWeights.dispose(); console.log("Disposed attentionWeights"); } }
+                    if (resampledCurveSharpnessTensor && !resampledCurveSharpnessTensor.isDisposed) { resampledCurveSharpnessTensor.dispose(); console.log("Disposed resampledCurveSharpnessTensor"); } if (resampledCurveAttentionTensor && !resampledCurveAttentionTensor.isDisposed) { resampledCurveAttentionTensor.dispose(); console.log("Disposed resampledCurveAttentionTensor"); } if (receivedAttentionScoresTensor && !receivedAttentionScoresTensor.isDisposed) { receivedAttentionScoresTensor.dispose(); console.log("Disposed receivedAttentionScoresTensor (in finally)"); }
+                    console.log("Final Tensor Memory:", tf.memory());
+                }
+            }); // End event listener
+        } // End initial api check
+
+    </script>
+
+</body>
+</html>
