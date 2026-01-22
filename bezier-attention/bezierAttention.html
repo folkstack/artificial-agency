@@ -164,7 +164,7 @@
 
 
     <!-- ** CHARTS DIV (ON LEFT) ** -->
-    <div class="charts">
+    <div class="charts" id=charts>
         <div class="chart-row chart-row-top">
             <div class="chart-container">
                 <h2>Original Uniform Curve</h2>
@@ -272,6 +272,7 @@
         } else {
             console.log("API loaded successfully:", api);
             runButton.addEventListener('click', async () => {
+                window.scrollTo(0, window.innerHeight)
                 console.log("Run button clicked. API:", api);
                  if (!tf) {
                      if(statusMessage) { statusMessage.textContent = 'Error: TensorFlow.js not loaded.'; statusMessage.style.color = 'red'; }
