@@ -15,7 +15,7 @@ To use it you must activate the FS API by scrolling to the bottom of the page.  
 * The AI agent which I designed and directed, was written by the agent itself starting with a protocol and then producing scripts, VMs, programs, macros, and various apps for prompts, agent flow, and context analysis.
 * eneral purpose parallel GPU processing mathematical synthesis engine
 
-## For Consulting, Contracting, or Hire
+## For Consulting, Contract, or Hire
 Application design, development, UI/UX, fullstack, general programming, and of course AI development.
 
 Contact: folkstack@gmail.com
